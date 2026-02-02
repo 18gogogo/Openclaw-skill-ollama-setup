@@ -294,6 +294,121 @@ Error: Authentication failed
 
 ---
 
+### 錯誤 5：Configuration key 不支援（OpenClaw 2026.1.29+）
+
+**錯誤訊息：**
+
+```
+Warning: agents.entries is not supported
+Warning: hooks.internal.entries is not supported
+Warning: plugins.entries is not supported
+```
+
+**錯誤原因：**
+
+OpenClaw 2026.1.29 及以上版本不再支援 `entries` 包裝層，某些舊版配置結構會觸發警告或錯誤。
+
+**受影響的配置區塊：**
+
+- `agents.entries.*` - 例如 coder、researcher、writer 等
+- `hooks.internal.entries.*` - 例如 boot-md、command-logger、session-memory
+- `plugins.entries.*` - 例如 telegram
+
+**解決步驟：**
+
+#### 步驟 1：移除 agents.entries
+
+**之前（錯誤）**：
+```json
+"agents": {
+  "entries": {
+    "coder": { ... },
+    "researcher": { ... },
+    "writer": { ... },
+    "file-agent": { ... },
+    "browser-agent": { ... }
+  }
+}
+```
+
+**之後（正確）**：
+```json
+"agents": {
+  "defaults": { ... }
+}
+```
+
+直接移除整個 `agents.entries` 區塊。
+
+#### 步驟 2：修正 hooks.internal.entries
+
+**之前（錯誤）**：
+```json
+"hooks": {
+  "internal": {
+    "enabled": true,
+    "entries": {
+      "boot-md": { "enabled": true },
+      "command-logger": { "enabled": true },
+      "session-memory": { "enabled": true }
+    }
+  }
+}
+```
+
+**之後（正確）**：
+```json
+"hooks": {
+  "internal": {
+    "enabled": true
+  }
+}
+```
+
+移除 `entries` 包裝層，但保留 `enabled: true` 在 `hooks.internal` 層級。
+
+#### 步驟 3：修正 plugins.entries
+
+**之前（錯誤）**：
+```json
+"plugins": {
+  "entries": {
+    "telegram": { "enabled": true }
+  }
+}
+```
+
+**之後（正確）**：
+```json
+"plugins": {
+  "telegram": { "enabled": true }
+}
+```
+
+移除 `entries` 包裝層，將設定直接放在 `plugins` 下方。
+
+#### 步驟 4：執行自動修復
+
+使用 OpenClaw 內建指令自動修復配置問題：
+
+```bash
+openclaw doctor --fix
+```
+
+#### 步驟 5：重啟 OpenClaw
+
+```bash
+gateway restart
+```
+
+**預防措施：**
+
+- 更新 OpenClaw 版本後，檢查配置是否需要調整
+- 定期執行 `openclaw doctor` 檢測配置問題
+- 追蹤 OpenClaw 版本更新日誌，了解配置結構變更
+
+---
+
 ## 模型列表
 
 ### Qwen3 VL 遠端模型（Ollama）
