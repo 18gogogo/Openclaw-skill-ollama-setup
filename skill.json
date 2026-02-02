@@ -1,0 +1,108 @@
+{
+  "name": "qwen-nvidia-model-config",
+  "version": "1.0.0",
+  "description": {
+    "zh_TW": "OpenClaw Qwen3 VL 與 NVIDIA MiniMax M2.1 模型配置模板，包含常見模型錯誤解決方案",
+    "en": "OpenClaw Qwen3 VL and NVIDIA MiniMax M2.1 model configuration template with common error solutions"
+  },
+  "author": "OpenClaw Community",
+  "license": "MIT",
+  "keywords": ["qwen", "nvidia", "model", "config", "ollama", "openclaw"],
+  "homepage": "https://github.com/openclaw/skill-qwen-nvidia-model-config",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openclaw/skill-qwen-nvidia-model-config"
+  },
+  "config": {
+    "merge": {
+      "gateway": {
+        "auth": {
+          "mode": "token",
+          "token": "${GATEWAY_TOKEN}"
+        },
+        "port": 18789,
+        "bind": "lan"
+      },
+      "channels": {
+        "telegram": {
+          "enabled": true,
+          "botToken": "${TELEGRAM_BOT_TOKEN}"
+        }
+      },
+      "env": {
+        "NVIDIA_API_KEY": "${NVIDIA_API_KEY}"
+      },
+      "models": {
+        "mode": "merge",
+        "providers": {
+          "nvidia-minimax": {
+            "baseUrl": "https://integrate.api.nvidia.com/v1",
+            "apiKey": "${NVIDIA_API_KEY}",
+            "api": "openai-completions",
+            "models": [
+              {
+                "id": "minimaxai/minimax-m2.1",
+                "name": "NVIDIA MiniMax M2.1",
+                "reasoning": true,
+                "input": ["text"],
+                "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+                "contextWindow": 200000,
+                "maxTokens": 131072
+              }
+            ]
+          },
+          "ollama-remote": {
+            "baseUrl": "http://${OLLAMA_SERVER_IP}:11434/v1",
+            "apiKey": "ollama-local",
+            "api": "openai-completions",
+            "models": [
+              {
+                "id": "qwen3-vl:8b-thinking-bf16",
+                "name": "Qwen3 VL (Remote Ollama)",
+                "reasoning": true,
+                "input": ["text"],
+                "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+                "contextWindow": 163840,
+                "maxTokens": 65536
+              }
+            ]
+          }
+        }
+      },
+      "agents": {
+        "defaults": {
+          "maxConcurrent": 4,
+          "subagents": {
+            "maxConcurrent": 8
+          },
+          "compaction": {
+            "mode": "safeguard"
+          },
+          "workspace": "/home/ubuntu/.openclaw/workspace",
+          "model": {
+            "primary": "nvidia-minimax/minimaxai/minimax-m2.1"
+          },
+          "models": {
+            "nvidia-minimax/minimaxai/minimax-m2.1": {},
+            "ollama-remote/qwen3-vl:8b-thinking-bf16": {}
+          }
+        }
+      }
+    }
+  },
+  "requirements": {
+    "openclaw": ">=2026.1.0"
+  },
+  "install": {
+    "steps": [
+      {
+        "type": "config",
+        "description": "設定 Qwen3 VL 與 NVIDIA MiniMax 模型配置"
+      }
+    ]
+  },
+  "readme": {
+    "path": "readme.md",
+    "language": "zh_TW"
+  }
+}

@@ -1,0 +1,17 @@
+# 環境變數檔案
+.env
+.env.local
+.env.*.local
+
+# OpenClaw 臨時檔案
+*.tmp
+*.log
+
+# 系統隱藏檔案
+.DS_Store
+Thumbs.db
+
+# 備份檔案
+*.backup
+*.bak
+*~
