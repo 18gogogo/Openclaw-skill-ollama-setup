@@ -1,14 +1,15 @@
-# OpenClaw Qwen3 VL 與 NVIDIA MiniMax 模型配置模板
+# OpenClaw Qwen2.5 與 NVIDIA MiniMax 模型配置模板
 
 [English](#english) | 繁體中文
 
-本模板提供 OpenClaw 整合 Qwen3 VL 遠端模型與 NVIDIA API 的完整配置，解決常見的模型錯誤問題。
+本模板提供 OpenClaw 整合 Qwen2.5 遠端模型與 NVIDIA API 的完整配置，解決常見的模型錯誤問題，並提供 Modelfile 設定指南。
 
 ## 目錄
 
 - [功能特色](#功能特色)
 - [快速開始](#快速開始)
 - [環境變數設定](#環境變數設定)
+- [Modelfile 設定（重要！）](#modelfile-設定重要)
 - [常見錯誤與解決方案](#常見錯誤與解決方案)
 - [模型列表](#模型列表)
 - [故障排除](#故障排除)
@@ -19,8 +20,10 @@
 
 ## 功能特色
 
-- ✅ 支援 Qwen3 VL 遠端模型（Ollama）
+- ✅ 支援 Qwen2.5 遠端模型（Ollama）
+- ✅ 支援 Qwen2.5 32B（複雜推理）和 14B（快速回應）
 - ✅ 整合 NVIDIA MiniMax M2.1 模型
+- ✅ 包含 Modelfile 設定指南，正確設定 num_ctx
 - ✅ 包含常見錯誤的完整解決方案
 - ✅ 環境變數管理，安全保護敏感資料
 - ✅ 符合 OpenClaw 標準格式
@@ -35,11 +38,51 @@
 
 ```
 ~/.openclaw/skill/
-├── qwen-nvidia-model-config.json          ← 主設定檔
-└── qwen-nvidia-model-config-readme.md     ← 說明文件
+├── ollamasetup/
+│   ├── skill.json              ← 主設定檔
+│   └── readme.md               ← 說明文件
 ```
 
-### 2. 設定環境變數
+### 2. 在 Ollama 伺服器上創建 Modelfile（重要！）
+
+**必須先完成此步驟！** OpenClaw 無法直接設定 num_ctx，需透過 Modelfile。
+
+#### 創建 Qwen2.5 14B Modelfile（128K 上下文）
+
+```powershell
+# 在 5090 Windows 11 上執行 PowerShell
+@"
+FROM qwen2.5:14b-instruct-q8_0
+PARAMETER num_ctx 131072
+"@ | Out-File -Encoding UTF8 "$env:USERPROFILE\Ollama\Modelfiles\Qwen2.5-14B"
+
+ollama create -f "$env:USERPROFILE\Ollama\Modelfiles\Qwen2.5-14B" qwen2.5:14b-instruct-q8_0-ctx131072
+```
+
+#### 創建 Qwen2.5 32B Modelfile（64K 上下文）
+
+```powershell
+@"
+FROM qwen2.5:32b-instruct-q4_1
+PARAMETER num_ctx 65536
+"@ | Out-File -Encoding UTF8 "$env:USERPROFILE\Ollama\Modelfiles\Qwen2.5-32B"
+
+ollama create -f "$env:USERPROFILE\Ollama\Modelfiles\Qwen2.5-32B" qwen2.5:32b-instruct-q4_1-ctx64k
+```
+
+#### 驗證模型
+
+```powershell
+ollama list
+```
+
+應該看到：
+```
+qwen2.5:14b-instruct-q8_0-ctx131072      abc123...   15 GB
+qwen2.5:32b-instruct-q4_1-ctx64k         def456...   20 GB
+```
+
+### 3. 設定環境變數
 
 複製範本並填入你的資料。建立 `.env` 檔案：
 
@@ -57,10 +100,10 @@ NVIDIA_API_KEY=nvapi-your-nvidia-api-key-here
 OLLAMA_SERVER_IP=192.168.x.x
 ```
 
-### 3. 重啟 OpenClaw
+### 4. 重啟 OpenClaw
 
 ```bash
-openclaw restart
+openclaw doctor --fix
 ```
 
 ---
@@ -88,6 +131,85 @@ openclaw restart
 
 ---
 
+## Modelfile 設定（重要！）
+
+### 為什麼需要 Modelfile？
+
+**OpenClaw 無法直接傳遞 num_ctx 參數給 Ollama！**
+
+嘗試在 OpenClaw 配置中加入 `numCtx` 會被 `doctor --fix` 自動移除，產生錯誤：
+```
+Invalid config: models.providers.ollama-remote.models.0: Unrecognized key: "numCtx"
+```
+
+### 解決方案：使用 Modelfile
+
+在 Ollama 伺服器上創建 Modelfile，固定 num_ctx 參數。
+
+### Modelfile 範本
+
+#### 範本 1：文字模型（128K 上下文）
+
+```dockerfile
+FROM qwen2.5:14b-instruct-q8_0
+PARAMETER num_ctx 131072
+```
+
+#### 範本 2：文字模型（64K 上下文）
+
+```dockerfile
+FROM qwen2.5:32b-instruct-q4_1
+PARAMETER num_ctx 65536
+```
+
+#### 範本 3：輕量模型（64K 上下文）
+
+```dockerfile
+FROM qwen2.5:7b-instruct-q8_0
+PARAMETER num_ctx 65536
+```
+
+### PowerShell 自動化腳本
+
+```powershell
+# 創建 Modelfile 並生成新模型
+$modelName = "qwen2.5:14b-instruct-q8_0"
+$ctxSize = 131072
+
+$modelfile = @"
+FROM $modelName
+PARAMETER num_ctx $ctxSize
+"@
+
+$modelfilePath = "$env:USERPROFILE\Ollama\Modelfiles\$($modelName.Replace(':', '-').Replace('/', '-'))"
+New-Item -ItemType Directory -Force -Path (Split-Path $modelfilePath) | Out-Null
+$modelfile | Out-File -FilePath $modelfilePath -Encoding UTF8
+
+ollama create -f $modelfilePath "$modelName-ctx$ctxSize"
+
+Write-Host "模型已創建：$modelName-ctx$ctxSize"
+```
+
+### 常見問題
+
+**Q：Modelfile 放在哪裡？**
+
+A：放在 Ollama 伺服器的 `Modelfiles` 目錄：
+- Windows: `%USERPROFILE%\Ollama\Modelfiles\`
+- Linux: `/etc/ollama/Modelfiles/`
+
+**Q：如何刪除模型？**
+
+```powershell
+ollama rm qwen2.5:14b-instruct-q8_0-ctx131072
+```
+
+**Q：可以修改已創建的模型嗎？**
+
+A：不行，需要先刪除再重新創建。
+
+---
+
 ## 常見錯誤與解決方案
 
 ### 錯誤 1：模型不被允許
@@ -95,96 +217,99 @@ openclaw restart
 **錯誤訊息：**
 
 ```
-Model "ollama-remote/qwen3-vl:8b-thinking-bf16" is not allowed.
+Model "ollama-remote/qwen2.5:14b-instruct-q8_0-ctx131072" is not allowed.
 Use /models to list providers, or /models <provider> to list models.
 ```
 
 **錯誤原因：**
 
-該模型未在配置文件的允許清單中註冊。當你嘗試使用一個未被明確允許的模型時，OpenClaw 會拒絕此請求，這是系統的安全機制。
+該模型未在配置文件的允許清單中註冊。
 
 **解決步驟：**
 
 1. 執行 `/models` 查詢可用模型列表
-   
-   在 OpenClaw 中輸入指令，系統會回傳所有已註冊的模型清單。這個步驟可以讓你確認哪些模型是被允許使用的。
 
-2. 確認模型名稱格式正確
-   
-   模型名稱必須完全符合配置檔案中的 ID。檢查是否有拼寫錯誤、大小寫是否正確、前後是否有空格。
-
-3. 在配置檔案中加入模型設定
-   
-   在 `models.providers.ollama-remote.models` 區塊中新增以下內容：
+2. 在 `models.providers.ollama-remote.models` 中加入：
 
    ```json
    {
-     "id": "qwen3-vl:8b-thinking-bf16",
-     "name": "Qwen3 VL (Remote Ollama)",
-     "reasoning": true,
+     "id": "qwen2.5:14b-instruct-q8_0-ctx131072",
+     "name": "Qwen2.5 14B Instruct Q8_0 (128K context)",
+     "reasoning": false,
      "input": ["text"],
      "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-     "contextWindow": 163840,
-     "maxTokens": 65536
+     "contextWindow": 131072,
+     "maxTokens": 131072
    }
    ```
 
-4. 同步更新 agents 配置
-   
-   在 `agents.defaults.models` 中註冊模型 ID：
+3. 在 `agents.defaults.models` 中註冊：
 
    ```json
-   {
-     "ollama-remote/qwen3-vl:8b-thinking-bf16": {}
-   }
+   "ollama-remote/qwen2.5:14b-instruct-q8_0-ctx131072": {}
    ```
 
-5. 儲存設定並重啟 OpenClaw
-
-   儲存所有修改後，必須重啟 OpenClaw 服務使設定生效。
-
-**預防措施：**
-
-- 修改模型前先執行 `/models` 確認可用選項
-- 確保模型名稱符合系統規範
-- 新增模型時必須同步更新 config 的多個區塊
-- 建立模型清單文件，記錄已成功使用的模型
+4. 執行 `openclaw doctor --fix`
 
 ---
 
-### 錯誤 2：/restart 指令被禁用
+### 錯誤 2：OpenClaw 不支援 thinking 參數
 
 **錯誤訊息：**
 
 ```
-⚠️ /restart is disabled. Set commands.restart=true to enable.
+Invalid config: models.providers.ollama-remote.models.0: Unrecognized key: "thinking"
 ```
 
 **錯誤原因：**
 
-重啟指令在預設情況下是禁用的，這是為了防止意外重啟導致服務中斷。你需要手動在配置中啟用此功能。
+OpenClaw 配置中 `"thinking"` 不是有效的 key。
 
-**解決步驟：**
+**解決方案：**
 
-在配置文件根層級加入以下設定：
-
-```json
-{
-  "commands": {
-    "restart": true
-  }
-}
-```
-
-儲存後重啟 OpenClaw 即可使用 `/restart` 指令。
-
-**使用情境：**
-
-啟用後，你可以隨時輸入 `/restart` 來重新啟動 OpenClaw 服務，這在修改配置後需要使設定生效時非常有用。
+- 不要在 OpenClaw 配置中加入 "thinking" 參數
+- 改用非 thinking 版本模型（如 `qwen2.5:14b-instruct-*` 而非 `qwen3-vl:8b-thinking-*`）
 
 ---
 
-### 錯誤 3：Ollama 連線失敗
+### 錯誤 3：OpenClaw 不支援 numCtx
+
+**錯誤訊息：**
+
+```
+Invalid config: models.providers.ollama-remote.models.0: Unrecognized key: "numCtx"
+```
+
+**錯誤原因：**
+
+`numCtx`/`num_ctx` 不是 OpenClaw 支援的 key。
+
+**解決方案：**
+
+使用 Modelfile 在 Ollama 端設定 num_ctx（詳見上方 Modelfile 設定章節）。
+
+---
+
+### 錯誤 4：Llama 3.2 Vision 不支援 tools
+
+**錯誤訊息：**
+
+```
+400 ... does not support tools
+```
+
+**錯誤原因：**
+
+Llama 3.2 Vision 模型本身不支援 tools/function calling。
+
+**解決方案：**
+
+- 刪除 Llama 3.2 Vision 模型
+- 改用 Qwen2.5 系列（支援 tools）
+
+---
+
+### 錯誤 5：Ollama 連線失敗
 
 **錯誤訊息：**
 
@@ -192,230 +317,56 @@ Use /models to list providers, or /models <provider> to list models.
 Connection refused to http://192.168.x.x:11434/v1
 ```
 
-或
-
-```
-ECONNREFUSED 192.168.x.x:11434
-```
-
-**錯誤原因：**
-
-1. Ollama 伺服器未啟動
-2. IP 位址錯誤
-3. 防火牆阻擋
-4. 網路連線問題
-
 **解決步驟：**
 
 1. 確認 Ollama 伺服器正在運行
 
-   在 Ollama 伺服器上執行以下指令：
-
    ```bash
-   # 檢查 Ollama 版本
-   curl http://localhost:11434/api/version
-
-   # 測試 API 是否正常
    curl http://localhost:11434/api/tags
    ```
 
-2. 檢查 IP 位址設定是否正確
-
-   確認配置檔案中的 `OLLAMA_SERVER_IP` 與實際伺服器 IP 一致。
+2. 檢查 IP 位址設定
 
 3. 確認防火牆允許連線
 
    ```bash
-   # 在 Ollama 伺服器上執行
-   # 開放 11434 連接埠
    sudo ufw allow 11434
-
-   # 或者使用 iptables
-   sudo iptables -A INPUT -p tcp --dport 11434 -j ACCEPT
    ```
-
-4. 在客戶端測試連線
-
-   ```bash
-   curl http://192.168.x.x:11434/api/tags
-   ```
-
-   如果連線成功，你會看到已下載的模型清單。
-
-**疑難排解：**
-
-- 檢查 Ollama 服務狀態：`systemctl status ollama`
-- 查看 Ollama 日誌：`journalctl -u ollama`
-- 確認伺服器IP是否可 Ping 通：`ping 192.168.x.x`
 
 ---
 
-### 錯誤 4：NVIDIA API 驗證失敗
-
-**錯誤訊息：**
-
-```
-401 Unauthorized - Invalid API Key
-```
-
-或
-
-```
-Error: Authentication failed
-```
-
-**錯誤原因：**
-
-1. API Key 過期或無效
-2. API Key 權限不足
-3. API Key 已達到使用限制
-
-**解決步驟：**
-
-1. 前往 [NVIDIA API Keys](https://build.nvidia.com/account/keys) 檢查 API Key 狀態
-
-   登入後在帳戶頁面查看 API Keys 列表，確認 Key 是否處於啟用狀態。
-
-2. 如有必要，建立新的 API Key
-
-   如果舊的 Key 已經過期或被撤銷，點擊「Create New Key」按鈕建立新的 API Key。
-
-3. 更新環境變數
-
-   將新的 API Key 填入環境變數檔案：
-
-   ```bash
-   NVIDIA_API_KEY=nvapi-your-new-api-key-here
-   ```
-
-4. 重啟 OpenClaw
-
-   讓新的 API Key 生效。
-
----
-
-### 錯誤 5：Configuration key 不支援（OpenClaw 2026.1.29+）
+### 錯誤 6：Configuration key 不支援
 
 **錯誤訊息：**
 
 ```
 Warning: agents.entries is not supported
-Warning: hooks.internal.entries is not supported
-Warning: plugins.entries is not supported
 ```
-
-**錯誤原因：**
-
-OpenClaw 2026.1.29 及以上版本不再支援 `entries` 包裝層，某些舊版配置結構會觸發警告或錯誤。
-
-**受影響的配置區塊：**
-
-- `agents.entries.*` - 例如 coder、researcher、writer 等
-- `hooks.internal.entries.*` - 例如 boot-md、command-logger、session-memory
-- `plugins.entries.*` - 例如 telegram
 
 **解決步驟：**
 
-#### 步驟 1：移除 agents.entries
-
-**之前（錯誤）**：
-```json
-"agents": {
-  "entries": {
-    "coder": { ... },
-    "researcher": { ... },
-    "writer": { ... },
-    "file-agent": { ... },
-    "browser-agent": { ... }
-  }
-}
-```
-
-**之後（正確）**：
-```json
-"agents": {
-  "defaults": { ... }
-}
-```
-
-直接移除整個 `agents.entries` 區塊。
-
-#### 步驟 2：修正 hooks.internal.entries
-
-**之前（錯誤）**：
-```json
-"hooks": {
-  "internal": {
-    "enabled": true,
-    "entries": {
-      "boot-md": { "enabled": true },
-      "command-logger": { "enabled": true },
-      "session-memory": { "enabled": true }
-    }
-  }
-}
-```
-
-**之後（正確）**：
-```json
-"hooks": {
-  "internal": {
-    "enabled": true
-  }
-}
-```
-
-移除 `entries` 包裝層，但保留 `enabled: true` 在 `hooks.internal` 層級。
-
-#### 步驟 3：修正 plugins.entries
-
-**之前（錯誤）**：
-```json
-"plugins": {
-  "entries": {
-    "telegram": { "enabled": true }
-  }
-}
-```
-
-**之後（正確）**：
-```json
-"plugins": {
-  "telegram": { "enabled": true }
-}
-```
-
-移除 `entries` 包裝層，將設定直接放在 `plugins` 下方。
-
-#### 步驟 4：執行自動修復
-
-使用 OpenClaw 內建指令自動修復配置問題：
-
-```bash
-openclaw doctor --fix
-```
-
-#### 步驟 5：重啟 OpenClaw
-
-```bash
-gateway restart
-```
-
-**預防措施：**
-
-- 更新 OpenClaw 版本後，檢查配置是否需要調整
-- 定期執行 `openclaw doctor` 檢測配置問題
-- 追蹤 OpenClaw 版本更新日誌，了解配置結構變更
+1. 移除 `agents.entries` 包裝層
+2. 移除 `hooks.internal.entries` 包裝層
+3. 移除 `plugins.entries` 包裝層
+4. 執行 `openclaw doctor --fix`
 
 ---
 
 ## 模型列表
 
-### Qwen3 VL 遠端模型（Ollama）
+### Qwen2.5 遠端模型（Ollama）
 
-| 模型 ID | 名稱 | 用途 | Context Window |
-|---------|------|------|----------------|
-| `qwen3-vl:8b-thinking-bf16` | Qwen3 VL | 視覺理解、多模態 | 163,840 tokens |
+| 模型 ID | 名稱 | 上下文 | VRAM | 用途 | 狀態 |
+|---------|------|--------|------|------|------|
+| `qwen2.5:32b-instruct-q4_1-ctx64k` | Qwen2.5 32B Instruct Q4_1 | 64K | ~20 GB | 複雜推理、深度任務 | ✅ 正常 |
+| `qwen2.5:14b-instruct-q8_0-ctx131072` | Qwen2.5 14B Instruct Q8_0 | 128K | 15 GB | 日常對話、快速回應 | ✅ 正常 |
+
+### 舊版模型（不再使用）
+
+| 模型 ID | 問題 |
+|---------|------|
+| `qwen3-vl:8b-thinking-bf16` | 不支援 OpenClaw 的 think 參數 |
+| `llama3.2-vision:*` | 不支援 tools |
 
 ### NVIDIA 模型
 
@@ -423,98 +374,69 @@ gateway restart
 |---------|------|------|----------------|
 | `minimaxai/minimax-m2.1` | NVIDIA MiniMax M2.1 | 一般對話、推理 | 200,000 tokens |
 
+### 模型比較
+
+| 任務類型 | 推薦模型 |
+|----------|----------|
+| 日常對話、快速問答 | **Qwen2.5 14B**（128K 更快） |
+| 複雜代碼、深度分析 | **Qwen2.5 32B**（推理更強） |
+| 長文件處理（>64K） | **Qwen2.5 14B**（128K 上下文） |
+| 雲端備用 | **NVIDIA MiniMax**（200K 上下文） |
+
 ---
 
 ## 故障排除
 
 ### Q1：如何查詢可用的模型？
 
-在 OpenClaw 中輸入：
-
 ```bash
 /models              # 列出所有 providers
 /models ollama-remote # 列出 ollama-remote provider 的模型
-/models nvidia-minimax # 列出 nvidia-minimax provider 的模型
 ```
 
-系統會回傳已註冊的模型清單，包含模型 ID、名稱和其他資訊。
+### Q2：如何切換模型？
 
-### Q2：如何切換預設模型？
-
-修改 `agents.defaults.model.primary` 設定：
-
-```json
-{
-  "agents": {
-    "defaults": {
-      "model": {
-        "primary": "ollama-remote/qwen3-vl:8b-thinking-bf16"
-      }
-    }
-  }
-}
+```bash
+/model ollama-remote/qwen2.5:14b-instruct-q8_0-ctx131072  # 14B
+/model ollama-remote/qwen2.5:32b-instruct-q4_1-ctx64k     # 32B
+/model nvidia-minimax/minimaxai/minimax-m2.1             # NVIDIA
 ```
-
-切換後重啟 OpenClaw 即可使用新的預設模型。
 
 ### Q3：如何新增自定義模型？
 
-1. 在 `models.providers.<provider>.models` 中加入模型設定
-   
-   根據你要新增的模型類型，選擇對應的 provider 區塊。
+1. 在 Ollama 伺服器上創建 Modelfile
+2. 執行 `ollama create` 創建新模型
+3. 在 `models.providers.ollama-remote.models` 中加入設定
+4. 在 `agents.defaults.models` 中註冊
+5. 執行 `openclaw doctor --fix`
 
-2. 在 `agents.defaults.models` 中註冊模型 ID
-   
-   這一步是必须的，否則模型雖然可以查詢，但無法實際使用。
+### Q4：VRAM 不足怎麼辦？
 
-3. 儲存並重啟
+選擇較小的模型：
 
-### Q4：重啟後設定消失？
+| 模型 | VRAM |
+|------|------|
+| Qwen2.5 7B | ~8 GB |
+| Qwen2.5 14B | ~15 GB |
+| Qwen2.5 32B | ~20 GB |
 
-確保使用正確的環境變數語法：
-
-```json
-{
-  "apiKey": "${NVIDIA_API_KEY}",
-  "baseUrl": "http://${OLLAMA_SERVER_IP}:11434/v1"
-}
-```
-
-環境變數會在啟動時自動替換為實際值，這樣可以避免敏感資料被硬編碼在配置檔案中。
-
-### Q5：如何備份配置？
+### Q5：修改配置後需要做什麼？
 
 ```bash
-# 複製配置檔案
-cp /path/to/openclaw.json /path/to/openclaw.json.backup
-
-# 或者使用時間戳記備份
-cp openclaw.json openclaw.json.backup.$(date +%Y%m%d)
+openclaw doctor --fix
 ```
 
-### Q6：如何查看目前使用的模型？
-
-執行以下指令：
+### Q6：如何備份配置？
 
 ```bash
-/status
+cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.backup.$(date +%Y%m%d)
 ```
-
-系統會顯示目前的工作階段狀態，包括使用的模型名稱。
-
-### Q7：修改配置後需要做什麼？
-
-1. 儲存配置檔案
-2. 執行 `/restart` 或重啟 OpenClaw 服務
-3. 驗證設定是否生效
 
 ---
 
 ## 進階設定
 
 ### 自定義模型參數
-
-你可以為模型添加額外的參數設定：
 
 ```json
 {
@@ -523,15 +445,13 @@ cp openclaw.json openclaw.json.backup.$(date +%Y%m%d)
       "ollama-remote": {
         "models": [
           {
-            "id": "qwen3-vl:8b-thinking-bf16",
-            "name": "Qwen3 VL (Remote Ollama)",
-            "reasoning": true,
+            "id": "qwen2.5:14b-instruct-q8_0-ctx131072",
+            "name": "Qwen2.5 14B Instruct Q8_0",
+            "reasoning": false,
             "input": ["text"],
             "temperature": 0.7,
-            "top_p": 0.9,
-            "maxTokens": 65536,
-            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-            "contextWindow": 163840
+            "maxTokens": 131072,
+            "contextWindow": 131072
           }
         ]
       }
@@ -546,29 +466,10 @@ cp openclaw.json openclaw.json.backup.$(date +%Y%m%d)
 {
   "agents": {
     "defaults": {
-      "workspace": "/path/to/your/workspace",
+      "workspace": "/home/ubuntu/.openclaw/workspace",
       "maxConcurrent": 4,
       "subagents": {
         "maxConcurrent": 8
-      },
-      "compaction": {
-        "mode": "safeguard"
-      }
-    }
-  }
-}
-```
-
-### 啟用詳細日誌
-
-```json
-{
-  "hooks": {
-    "internal": {
-      "entries": {
-        "command-logger": {
-          "enabled": true
-        }
       }
     }
   }
@@ -577,37 +478,17 @@ cp openclaw.json openclaw.json.backup.$(date +%Y%m%d)
 
 ### 多伺服器配置
 
-如果你有多個 Ollama 伺服器，可以配置多個 provider：
-
 ```json
 {
   "models": {
     "providers": {
       "ollama-remote-home": {
         "baseUrl": "http://192.168.1.100:11434/v1",
-        "apiKey": "ollama-local",
-        "api": "openai-completions",
         "models": [...]
       },
       "ollama-remote-office": {
         "baseUrl": "http://192.168.1.200:11434/v1",
-        "apiKey": "ollama-local",
-        "api": "openai-completions",
         "models": [...]
-      }
-    }
-  }
-}
-```
-
-### 設定預設模型為 NVIDIA
-
-```json
-{
-  "agents": {
-    "defaults": {
-      "model": {
-        "primary": "nvidia-minimax/minimaxai/minimax-m2.1"
       }
     }
   }
@@ -626,23 +507,14 @@ cp openclaw.json openclaw.json.backup.$(date +%Y%m%d)
 
 3. **定期**輪換 API Keys，建議每 90 天更換一次
 
-4. **使用**環境變數管理敏感資料，確保資訊安全
+4. **使用**環境變數管理敏感資料
 
-5. **限制**API Key 的權限範圍，只給予必要的權限
-
-6. **監控**API 使用情況，及時發現異常使用
-
-### 環境變數檔案保護
-
-在專案根目錄建立 `.gitignore`：
+### .gitignore 範本
 
 ```bash
-# 忽略環境變數檔案
 .env
 .env.local
 .env.*.local
-
-# 忽略備份檔案
 *.backup
 *.bak
 ```
@@ -676,15 +548,30 @@ MIT License
 
 <a name="english"></a>
 
-# OpenClaw Qwen3 VL and NVIDIA MiniMax Model Configuration Template
+# OpenClaw Qwen2.5 and NVIDIA MiniMax Model Configuration Template
 
-This template provides a complete configuration for integrating Qwen3 VL remote models and NVIDIA API with OpenClaw, including solutions for common model errors.
+This template provides a complete configuration for integrating Qwen2.5 remote models and NVIDIA API with OpenClaw, including Modelfile setup guide and common error solutions.
 
 ### Quick Start
 
-1. Place skill files in `~/.openclaw/skill/`
-2. Set environment variables
-3. Restart OpenClaw
+1. Create Modelfile on Ollama server (IMPORTANT!)
+2. Place skill files in `~/.openclaw/skill/`
+3. Set environment variables
+4. Run `openclaw doctor --fix`
+
+### Modelfile Setup (Critical!)
+
+OpenClaw cannot pass num_ctx directly. Use Modelfile on Ollama server:
+
+```powershell
+# PowerShell
+@"
+FROM qwen2.5:14b-instruct-q8_0
+PARAMETER num_ctx 131072
+"@ | Out-File -Encoding UTF8 "$env:USERPROFILE\Ollama\Modelfiles\Qwen2.5-14B"
+
+ollama create -f "$env:USERPROFILE\Ollama\Modelfiles\Qwen2.5-14B" qwen2.5:14b-instruct-q8_0-ctx131072
+```
 
 ### Environment Variables
 
@@ -697,17 +584,22 @@ This template provides a complete configuration for integrating Qwen3 VL remote 
 
 ### Supported Models
 
-- **Ollama**: Qwen3 VL
-- **NVIDIA**: MiniMax M2.1
+| Model | Context | VRAM | Use Case |
+|-------|---------|------|----------|
+| `qwen2.5:32b-instruct-q4_1-ctx64k` | 64K | ~20GB | Complex reasoning |
+| `qwen2.5:14b-instruct-q8_0-ctx131072` | 128K | 15GB | General purpose |
+| `minimaxai/minimax-m2.1` (NVIDIA) | 200K | Cloud | Cloud backup |
 
 ### Common Error Solutions
 
-1. **Model not allowed**: Register model in `models.providers.ollama-remote.models`
-2. **/restart disabled**: Set `"commands": { "restart": true }`
-3. **Ollama connection failed**: Check server IP and firewall settings
-4. **NVIDIA API auth failed**: Update API Key in environment variables
+1. **Model not allowed**: Register in `models.providers.ollama-remote.models`
+2. **thinking parameter error**: Use non-thinking models (qwen2.5 instead of qwen3-vl)
+3. **numCtx not supported**: Use Modelfile on Ollama server
+4. **Llama Vision tools error**: Use Qwen2.5 (supports tools)
+5. **Ollama connection failed**: Check server IP and firewall
+6. **NVIDIA API auth failed**: Update API Key
 
 ---
 
-**Last Updated**: 2026-02-02
-**Version**: 1.0.0
+**Last Updated**: 2026-02-03
+**Version**: 1.1.0

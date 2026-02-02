@@ -1,13 +1,13 @@
 {
   "name": "qwen-nvidia-model-config",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": {
-    "zh_TW": "OpenClaw Qwen3 VL 與 NVIDIA MiniMax M2.1 模型配置模板，包含常見模型錯誤解決方案",
-    "en": "OpenClaw Qwen3 VL and NVIDIA MiniMax M2.1 model configuration template with common error solutions"
+    "zh_TW": "OpenClaw Qwen2.5 與 NVIDIA MiniMax M2.1 模型配置模板，包含常見模型錯誤解決方案及 Modelfile 設定指南",
+    "en": "OpenClaw Qwen2.5 and NVIDIA MiniMax M2.1 model configuration template with common error solutions and Modelfile setup guide"
   },
   "author": "OpenClaw Community",
   "license": "MIT",
-  "keywords": ["qwen", "nvidia", "model", "config", "ollama", "openclaw"],
+  "keywords": ["qwen", "qwen2.5", "nvidia", "model", "config", "ollama", "openclaw", "modelfile"],
   "homepage": "https://github.com/openclaw/skill-qwen-nvidia-model-config",
   "repository": {
     "type": "git",
@@ -57,12 +57,21 @@
             "api": "openai-completions",
             "models": [
               {
-                "id": "qwen3-vl:8b-thinking-bf16",
-                "name": "Qwen3 VL (Remote Ollama)",
-                "reasoning": true,
+                "id": "qwen2.5:14b-instruct-q8_0-ctx131072",
+                "name": "Qwen2.5 14B Instruct Q8_0 (128K context)",
+                "reasoning": false,
                 "input": ["text"],
                 "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-                "contextWindow": 163840,
+                "contextWindow": 131072,
+                "maxTokens": 131072
+              },
+              {
+                "id": "qwen2.5:32b-instruct-q4_1-ctx64k",
+                "name": "Qwen2.5 32B Instruct Q4_1 (64K context)",
+                "reasoning": false,
+                "input": ["text"],
+                "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+                "contextWindow": 65536,
                 "maxTokens": 65536
               }
             ]
@@ -84,7 +93,8 @@
           },
           "models": {
             "nvidia-minimax/minimaxai/minimax-m2.1": {},
-            "ollama-remote/qwen3-vl:8b-thinking-bf16": {}
+            "ollama-remote/qwen2.5:14b-instruct-q8_0-ctx131072": {},
+            "ollama-remote/qwen2.5:32b-instruct-q4_1-ctx64k": {}
           }
         }
       }
@@ -97,7 +107,11 @@
     "steps": [
       {
         "type": "config",
-        "description": "設定 Qwen3 VL 與 NVIDIA MiniMax 模型配置"
+        "description": "設定 Qwen2.5 與 NVIDIA MiniMax 模型配置"
+      },
+      {
+        "type": "instruction",
+        "description": "請在 Ollama 伺服器上使用 Modelfile 創建模型，詳見 README.md"
       }
     ]
   },
