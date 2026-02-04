@@ -548,7 +548,7 @@ MIT License
 
 <a name="english"></a>
 
-# OpenClaw Qwen2.5 and NVIDIA MiniMax Model Configuration Template
+# OpenClaw OLLAMA Qwen2.5 and NVIDIA MiniMax Model Configuration Template
 
 This template provides a complete configuration for integrating Qwen2.5 remote models and NVIDIA API with OpenClaw, including Modelfile setup guide and common error solutions.
 
