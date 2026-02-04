@@ -2,8 +2,8 @@
   "name": "qwen-nvidia-model-config",
   "version": "1.1.0",
   "description": {
-    "zh_TW": "OpenClaw Qwen2.5 與 NVIDIA MiniMax M2.1 模型配置模板，包含常見模型錯誤解決方案及 Modelfile 設定指南",
-    "en": "OpenClaw Qwen2.5 and NVIDIA MiniMax M2.1 model configuration template with common error solutions and Modelfile setup guide"
+    "zh_TW": "OpenClaw OLLAMA Qwen2.5 與 NVIDIA MiniMax M2.1 模型配置模板，包含常見模型錯誤解決方案及 Modelfile 設定指南",
+    "en": "OpenClaw OLLAMA Qwen2.5 and NVIDIA MiniMax M2.1 model configuration template with common error solutions and Modelfile setup guide"
   },
   "author": "OpenClaw Community",
   "license": "MIT",
