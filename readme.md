@@ -1,4 +1,4 @@
-# OpenClaw Qwen2.5 與 NVIDIA MiniMax 模型配置模板
+# OpenClaw OLLAMA Qwen2.5 與 NVIDIA MiniMax 模型配置模板
 
 [English](#english) | 繁體中文
 
