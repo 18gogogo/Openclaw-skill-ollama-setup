@@ -1,17 +1,17 @@
 {
-  "name": "qwen-nvidia-model-config",
-  "version": "1.1.0",
+  "name": "qwen-ollama-local-config",
+  "version": "2.0.0",
   "description": {
-    "zh_TW": "OpenClaw Qwen2.5 與 NVIDIA MiniMax M2.1 模型配置模板，包含常見模型錯誤解決方案及 Modelfile 設定指南",
-    "en": "OpenClaw Qwen2.5 and NVIDIA MiniMax M2.1 model configuration template with common error solutions and Modelfile setup guide"
+    "zh_TW": "OpenClaw 純 Ollama Qwen 本地模型配置，專為本地調用優化，支援 Qwen2.5 14B/32B 和 Qwen Coder",
+    "en": "OpenClaw Ollama-only Qwen local model configuration, optimized for local invocation, supports Qwen2.5 14B/32B and Qwen Coder"
   },
-  "author": "OpenClaw Community",
+  "author": "18gogogo",
   "license": "MIT",
-  "keywords": ["qwen", "qwen2.5", "nvidia", "model", "config", "ollama", "openclaw", "modelfile"],
-  "homepage": "https://github.com/openclaw/skill-qwen-nvidia-model-config",
+  "keywords": ["qwen", "qwen2.5", "qwen-coder", "ollama", "local", "openclaw", "modelfile"],
+  "homepage": "https://github.com/18gogogo/Openclaw-skill-ollama-setup",
   "repository": {
     "type": "git",
-    "url": "https://github.com/openclaw/skill-qwen-nvidia-model-config"
+    "url": "https://github.com/18gogogo/Openclaw-skill-ollama-setup"
   },
   "config": {
     "merge": {
@@ -29,50 +29,46 @@
           "botToken": "${TELEGRAM_BOT_TOKEN}"
         }
       },
-      "env": {
-        "NVIDIA_API_KEY": "${NVIDIA_API_KEY}"
-      },
       "models": {
         "mode": "merge",
         "providers": {
-          "nvidia-minimax": {
-            "baseUrl": "https://integrate.api.nvidia.com/v1",
-            "apiKey": "${NVIDIA_API_KEY}",
-            "api": "openai-completions",
-            "models": [
-              {
-                "id": "minimaxai/minimax-m2.1",
-                "name": "NVIDIA MiniMax M2.1",
-                "reasoning": true,
-                "input": ["text"],
-                "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-                "contextWindow": 200000,
-                "maxTokens": 131072
-              }
-            ]
-          },
           "ollama-remote": {
             "baseUrl": "http://${OLLAMA_SERVER_IP}:11434/v1",
             "apiKey": "ollama-local",
             "api": "openai-completions",
             "models": [
               {
-                "id": "qwen2.5:14b-instruct-q8_0-ctx131072",
-                "name": "Qwen2.5 14B Instruct Q8_0 (128K context)",
-                "reasoning": false,
-                "input": ["text"],
-                "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-                "contextWindow": 131072,
-                "maxTokens": 131072
-              },
-              {
-                "id": "qwen2.5:32b-instruct-q4_1-ctx64k",
-                "name": "Qwen2.5 32B Instruct Q4_1 (64K context)",
+                "id": "qwen-coder-64k:latest",
+                "name": "Qwen Coder 64K (num_ctx=65536, 專注代碼生成)",
+                "description": "專為程式碼生成和代碼分析優化的 Qwen 模型，適合程式開發任務",
                 "reasoning": false,
                 "input": ["text"],
                 "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
                 "contextWindow": 65536,
-                "maxTokens": 65536
+                "maxTokens": 65536,
+                "capabilities": ["code-generation", "code-analysis", "debugging"]
+              },
+              {
+                "id": "qwen2.5:14b-instruct-q8_0-ctx131072",
+                "name": "Qwen2.5 14B Instruct Q8_0 (num_ctx=131072, VRAM 15GB)",
+                "description": "高精度 Qwen2.5 14B 模型，128K 上下文，適合日常對話和快速回應",
+                "reasoning": false,
+                "input": ["text"],
+                "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+                "contextWindow": 131072,
+                "maxTokens": 131072,
+                "capabilities": ["chat", "reasoning", "tools", "long-context"]
+              },
+              {
+                "id": "qwen2.5:32b-instruct-q4_1-ctx64k",
+                "name": "Qwen2.5 32B Instruct Q4_1 (num_ctx=65536, VRAM ~20GB)",
+                "description": "大模型 Qwen2.5 32B，強大推理能力，適合複雜分析和深度任務",
+                "reasoning": false,
+                "input": ["text"],
+                "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+                "contextWindow": 65536,
+                "maxTokens": 65536,
+                "capabilities": ["reasoning", "analysis", "complex-tasks"]
               }
             ]
           }
@@ -89,10 +85,10 @@
           },
           "workspace": "/home/ubuntu/.openclaw/workspace",
           "model": {
-            "primary": "nvidia-minimax/minimaxai/minimax-m2.1"
+            "primary": "ollama-remote/qwen2.5:14b-instruct-q8_0-ctx131072"
           },
           "models": {
-            "nvidia-minimax/minimaxai/minimax-m2.1": {},
+            "ollama-remote/qwen-coder-64k:latest": {},
             "ollama-remote/qwen2.5:14b-instruct-q8_0-ctx131072": {},
             "ollama-remote/qwen2.5:32b-instruct-q4_1-ctx64k": {}
           }
@@ -101,17 +97,18 @@
     }
   },
   "requirements": {
-    "openclaw": ">=2026.1.0"
+    "openclaw": ">=2026.1.0",
+    "ollama": ">=0.1.0"
   },
   "install": {
     "steps": [
       {
-        "type": "config",
-        "description": "設定 Qwen2.5 與 NVIDIA MiniMax 模型配置"
+        "type": "instruction",
+        "description": "確保 Ollama 伺服器已安裝並運行以下模型：qwen-coder-64k:latest, qwen2.5:14b-instruct-q8_0-ctx131072, qwen2.5:32b-instruct-q4_1-ctx64k"
       },
       {
-        "type": "instruction",
-        "description": "請在 Ollama 伺服器上使用 Modelfile 創建模型，詳見 README.md"
+        "type": "config",
+        "description": "設定環境變數：OLLAMA_SERVER_IP, GATEWAY_TOKEN, TELEGRAM_BOT_TOKEN"
       }
     ]
   },
