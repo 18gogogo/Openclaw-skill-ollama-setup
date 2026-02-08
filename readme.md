@@ -1,8 +1,8 @@
-# OpenClaw OLLAMA Qwen2.5 與 NVIDIA MiniMax 模型配置模板
+# OpenClaw 純 Ollama Qwen 本地模型配置
 
 [English](#english) | 繁體中文
 
-本模板提供 OpenClaw 整合 Qwen2.5 遠端模型與 NVIDIA API 的完整配置，解決常見的模型錯誤問題，並提供 Modelfile 設定指南。
+本模板提供 OpenClaw 整合 Ollama Qwen 模型的完整本地配置，專為本地調用優化。支援 Qwen2.5 14B/32B 和 Qwen Coder，解決常見的模型錯誤問題，並提供 Modelfile 設定指南。
 
 ## 目錄
 
@@ -20,13 +20,15 @@
 
 ## 功能特色
 
-- ✅ 支援 Qwen2.5 遠端模型（Ollama）
-- ✅ 支援 Qwen2.5 32B（複雜推理）和 14B（快速回應）
-- ✅ 整合 NVIDIA MiniMax M2.1 模型
+- ✅ 支援 Ollama Qwen 本地模型（純本地，無雲端依賴）
+- ✅ 支援 Qwen Coder 64K（專注代碼生成）
+- ✅ 支援 Qwen2.5 14B（128K 上下文，日常對話）
+- ✅ 支援 Qwen2.5 32B（複雜推理、深度任務）
 - ✅ 包含 Modelfile 設定指南，正確設定 num_ctx
 - ✅ 包含常見錯誤的完整解決方案
 - ✅ 環境變數管理，安全保護敏感資料
 - ✅ 符合 OpenClaw 標準格式
+- ✅ 專為 qwen2.5 理解優化的描述格式
 
 ---
 
@@ -37,20 +39,29 @@
 將以下檔案放置到 OpenClaw 的 skills 目錄：
 
 ```
-~/.openclaw/skill/
-├── ollamasetup/
-│   ├── skill.json              ← 主設定檔
-│   └── readme.md               ← 說明文件
+~/.openclaw/skills/
+├── ollamasetup → ~/.openclaw/workspace/skills/ollamasetup/SKILL.md
 ```
 
 ### 2. 在 Ollama 伺服器上創建 Modelfile（重要！）
 
 **必須先完成此步驟！** OpenClaw 無法直接設定 num_ctx，需透過 Modelfile。
 
+#### 創建 Qwen Coder 64K Modelfile
+
+```powershell
+# 在 Windows 上執行 PowerShell
+@"
+FROM qwen-coder-64k:latest
+PARAMETER num_ctx 65536
+"@ | Out-File -Encoding UTF8 "$env:USERPROFILE\Ollama\Modelfiles\Qwen-Coder-64K"
+
+ollama create -f "$env:USERPROFILE\Ollama\Modelfiles\Qwen-Coder-64K" qwen-coder-64k:latest
+```
+
 #### 創建 Qwen2.5 14B Modelfile（128K 上下文）
 
 ```powershell
-# 在 5090 Windows 11 上執行 PowerShell
 @"
 FROM qwen2.5:14b-instruct-q8_0
 PARAMETER num_ctx 131072
@@ -78,8 +89,9 @@ ollama list
 
 應該看到：
 ```
-qwen2.5:14b-instruct-q8_0-ctx131072      abc123...   15 GB
-qwen2.5:32b-instruct-q4_1-ctx64k         def456...   20 GB
+qwen-coder-64k:latest              abc123...   12 GB
+qwen2.5:14b-instruct-q8_0-ctx131072  abc123...   15 GB
+qwen2.5:32b-instruct-q4_1-ctx64k      def456...   20 GB
 ```
 
 ### 3. 設定環境變數
@@ -92,9 +104,6 @@ GATEWAY_TOKEN=your_gateway_token_here
 
 # Telegram Bot Token
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-
-# NVIDIA API Key
-NVIDIA_API_KEY=nvapi-your-nvidia-api-key-here
 
 # Ollama 伺服器 IP 位址
 OLLAMA_SERVER_IP=192.168.x.x
@@ -114,14 +123,7 @@ openclaw doctor --fix
 |----------|------|------|------|
 | `GATEWAY_TOKEN` | 是 | OpenClaw Gateway 認證 Token | `f632860762fd9879...` |
 | `TELEGRAM_BOT_TOKEN` | 是 | Telegram Bot Token | `8548351054:AAEp...` |
-| `NVIDIA_API_KEY` | 是 | NVIDIA API Key | `nvapi-xxxxx-xxxxx` |
 | `OLLAMA_SERVER_IP` | 是 | Ollama 伺服器 IP 位址 | `192.168.0.98` |
-
-### 取得 NVIDIA API Key
-
-1. 前往 [NVIDIA API Keys](https://build.nvidia.com/account/keys)
-2. 建立新的 API Key
-3. 複製並貼到環境變數
 
 ### 取得 Telegram Bot Token
 
@@ -148,24 +150,24 @@ Invalid config: models.providers.ollama-remote.models.0: Unrecognized key: "numC
 
 ### Modelfile 範本
 
-#### 範本 1：文字模型（128K 上下文）
+#### 範本 1：Qwen Coder（64K 上下文）
+
+```dockerfile
+FROM qwen-coder-64k:latest
+PARAMETER num_ctx 65536
+```
+
+#### 範本 2：Qwen2.5 14B（128K 上下文）
 
 ```dockerfile
 FROM qwen2.5:14b-instruct-q8_0
 PARAMETER num_ctx 131072
 ```
 
-#### 範本 2：文字模型（64K 上下文）
+#### 範本 3：Qwen2.5 32B（64K 上下文）
 
 ```dockerfile
 FROM qwen2.5:32b-instruct-q4_1
-PARAMETER num_ctx 65536
-```
-
-#### 範本 3：輕量模型（64K 上下文）
-
-```dockerfile
-FROM qwen2.5:7b-instruct-q8_0
 PARAMETER num_ctx 65536
 ```
 
@@ -233,20 +235,22 @@ Use /models to list providers, or /models <provider> to list models.
 
    ```json
    {
-     "id": "qwen2.5:14b-instruct-q8_0-ctx131072",
-     "name": "Qwen2.5 14B Instruct Q8_0 (128K context)",
+     "id": "qwen-coder-64k:latest",
+     "name": "Qwen Coder 64K (num_ctx=65536, 專注代碼生成)",
+     "description": "專為程式碼生成和代碼分析優化的 Qwen 模型，適合程式開發任務",
      "reasoning": false,
      "input": ["text"],
      "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-     "contextWindow": 131072,
-     "maxTokens": 131072
+     "contextWindow": 65536,
+     "maxTokens": 65536,
+     "capabilities": ["code-generation", "code-analysis", "debugging"]
    }
    ```
 
 3. 在 `agents.defaults.models` 中註冊：
 
    ```json
-   "ollama-remote/qwen2.5:14b-instruct-q8_0-ctx131072": {}
+   "ollama-remote/qwen-coder-64k:latest": {}
    ```
 
 4. 執行 `openclaw doctor --fix`
@@ -305,7 +309,7 @@ Llama 3.2 Vision 模型本身不支援 tools/function calling。
 **解決方案：**
 
 - 刪除 Llama 3.2 Vision 模型
-- 改用 Qwen2.5 系列（支援 tools）
+- 改用 Qwen Coder 64K 或 Qwen2.5 系列（支援 tools）
 
 ---
 
@@ -317,7 +321,7 @@ Llama 3.2 Vision 模型本身不支援 tools/function calling。
 Connection refused to http://192.168.x.x:11434/v1
 ```
 
-**解決步驟：**
+**錯誤步驟：**
 
 1. 確認 Ollama 伺服器正在運行
 
@@ -343,7 +347,7 @@ Connection refused to http://192.168.x.x:11434/v1
 Warning: agents.entries is not supported
 ```
 
-**解決步驟：**
+**錯誤步驟：**
 
 1. 移除 `agents.entries` 包裝層
 2. 移除 `hooks.internal.entries` 包裝層
@@ -354,34 +358,26 @@ Warning: agents.entries is not supported
 
 ## 模型列表
 
-### Qwen2.5 遠端模型（Ollama）
+### Qwen 系列本地模型（Ollama）
 
-| 模型 ID | 名稱 | 上下文 | VRAM | 用途 | 狀態 |
-|---------|------|--------|------|------|------|
-| `qwen2.5:32b-instruct-q4_1-ctx64k` | Qwen2.5 32B Instruct Q4_1 | 64K | ~20 GB | 複雜推理、深度任務 | ✅ 正常 |
-| `qwen2.5:14b-instruct-q8_0-ctx131072` | Qwen2.5 14B Instruct Q8_0 | 128K | 15 GB | 日常對話、快速回應 | ✅ 正常 |
+| 模型 ID | 名稱 | 上下文 | VRAM | 用途 | Capabilities | 狀態 |
+|---------|------|--------|------|------|---------------|------|
+| `qwen-coder-64k:latest` | Qwen Coder 64K | 64K | ~12 GB | 專注代碼生成 | code-generation, code-analysis, debugging | ✅ 正常 |
+| `qwen2.5:14b-instruct-q8_0-ctx131072` | Qwen2.5 14B Instruct Q8_0 | 128K | 15 GB | 日常對話、快速回應 | chat, reasoning, tools, long-context | ✅ 正常（預設） |
+| `qwen2.5:32b-instruct-q4_1-ctx64k` | Qwen2.5 32B Instruct Q4_1 | 64K | ~20 GB | 複雜推理、深度任務 | reasoning, analysis, complex-tasks | ✅ 正常 |
 
-### 舊版模型（不再使用）
+### 預設模型
 
-| 模型 ID | 問題 |
-|---------|------|
-| `qwen3-vl:8b-thinking-bf16` | 不支援 OpenClaw 的 think 參數 |
-| `llama3.2-vision:*` | 不支援 tools |
-
-### NVIDIA 模型
-
-| 模型 ID | 名稱 | 用途 | Context Window |
-|---------|------|------|----------------|
-| `minimaxai/minimax-m2.1` | NVIDIA MiniMax M2.1 | 一般對話、推理 | 200,000 tokens |
+**主要模型（primary）:** `ollama-remote/qwen2.5:14b-instruct-q8_0-ctx131072`
 
 ### 模型比較
 
 | 任務類型 | 推薦模型 |
 |----------|----------|
+| 程式碼生成、代碼分析 | **Qwen Coder 64K** |
 | 日常對話、快速問答 | **Qwen2.5 14B**（128K 更快） |
 | 複雜代碼、深度分析 | **Qwen2.5 32B**（推理更強） |
 | 長文件處理（>64K） | **Qwen2.5 14B**（128K 上下文） |
-| 雲端備用 | **NVIDIA MiniMax**（200K 上下文） |
 
 ---
 
@@ -397,9 +393,9 @@ Warning: agents.entries is not supported
 ### Q2：如何切換模型？
 
 ```bash
-/model ollama-remote/qwen2.5:14b-instruct-q8_0-ctx131072  # 14B
-/model ollama-remote/qwen2.5:32b-instruct-q4_1-ctx64k     # 32B
-/model nvidia-minimax/minimaxai/minimax-m2.1             # NVIDIA
+/model ollama-remote/qwen-coder-64k:latest            # Coder
+/model ollama-remote/qwen2.5:14b-instruct-q8_0-ctx131072 # 14B
+/model ollama-remote/qwen2.5:32b-instruct-q4_1-ctx64k    # 32B
 ```
 
 ### Q3：如何新增自定義模型？
@@ -416,7 +412,7 @@ Warning: agents.entries is not supported
 
 | 模型 | VRAM |
 |------|------|
-| Qwen2.5 7B | ~8 GB |
+| Qwen Coder 64K | ~12 GB |
 | Qwen2.5 14B | ~15 GB |
 | Qwen2.5 32B | ~20 GB |
 
@@ -447,11 +443,13 @@ cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.backup.$(date +%Y%m%d)
           {
             "id": "qwen2.5:14b-instruct-q8_0-ctx131072",
             "name": "Qwen2.5 14B Instruct Q8_0",
+            "description": "高精度 Qwen2.5 14B 模型，128K 上下文，適合日常對話和快速回應",
             "reasoning": false,
             "input": ["text"],
-            "temperature": 0.7,
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 131072,
             "maxTokens": 131072,
-            "contextWindow": 131072
+            "capabilities": ["chat", "reasoning", "tools", "long-context"]
           }
         ]
       }
@@ -505,7 +503,7 @@ cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.backup.$(date +%Y%m%d)
 
 2. **不要**在程式碼中硬編寫 API Keys，請使用環境變數
 
-3. **定期**輪換 API Keys，建議每 90 天更換一次
+3. **定期**檢查和更新模型版本
 
 4. **使用**環境變數管理敏感資料
 
@@ -517,6 +515,8 @@ cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.backup.$(date +%Y%m%d)
 .env.*.local
 *.backup
 *.bak
+*.key
+*.pem
 ```
 
 ---
@@ -541,21 +541,20 @@ MIT License
 
 ## 聯絡
 
-- GitHub Issues: https://github.com/openclaw/skill-qwen-nvidia-model-config/issues
-- OpenClaw Discord: https://discord.gg/openclaw
+- GitHub Issues: https://github.com/18gogogo/Openclaw-skill-ollama-setup/issues
 
 ---
 
 <a name="english"></a>
 
-# OpenClaw OLLAMA Qwen2.5 and NVIDIA MiniMax Model Configuration Template
+# OpenClaw Ollama-Only Qwen Local Model Configuration
 
-This template provides a complete configuration for integrating Qwen2.5 remote models and NVIDIA API with OpenClaw, including Modelfile setup guide and common error solutions.
+This template provides a complete configuration for integrating Ollama Qwen models with OpenClaw, optimized for local invocation. Supports Qwen Coder 64K, Qwen2.5 14B, and Qwen2.5 32B.
 
 ### Quick Start
 
 1. Create Modelfile on Ollama server (IMPORTANT!)
-2. Place skill files in `~/.openclaw/skill/`
+2. Place skill files in `~/.openclaw/skills/`
 3. Set environment variables
 4. Run `openclaw doctor --fix`
 
@@ -564,7 +563,7 @@ This template provides a complete configuration for integrating Qwen2.5 remote m
 OpenClaw cannot pass num_ctx directly. Use Modelfile on Ollama server:
 
 ```powershell
-# PowerShell
+# PowerShell - Qwen2.5 14B
 @"
 FROM qwen2.5:14b-instruct-q8_0
 PARAMETER num_ctx 131072
@@ -579,27 +578,43 @@ ollama create -f "$env:USERPROFILE\Ollama\Modelfiles\Qwen2.5-14B" qwen2.5:14b-in
 |----------|----------|-------------|---------|
 | `GATEWAY_TOKEN` | Yes | OpenClaw Gateway Auth Token | `f632860762fd9879...` |
 | `TELEGRAM_BOT_TOKEN` | Yes | Telegram Bot Token | `8548351054:AAEp...` |
-| `NVIDIA_API_KEY` | Yes | NVIDIA API Key | `nvapi-xxxxx-xxxxx` |
 | `OLLAMA_SERVER_IP` | Yes | Ollama Server IP | `192.168.0.98` |
 
 ### Supported Models
 
-| Model | Context | VRAM | Use Case |
-|-------|---------|------|----------|
-| `qwen2.5:32b-instruct-q4_1-ctx64k` | 64K | ~20GB | Complex reasoning |
-| `qwen2.5:14b-instruct-q8_0-ctx131072` | 128K | 15GB | General purpose |
-| `minimaxai/minimax-m2.1` (NVIDIA) | 200K | Cloud | Cloud backup |
+| Model | Context | VRAM | Capabilities | Use Case |
+|-------|---------|------|---------------|----------|
+| `qwen-coder-64k:latest` | 64K | ~12GB | code-generation, code-analysis, debugging | Code generation |
+| `qwen2.5:14b-instruct-q8_0-ctx131072` | 128K | 15GB | chat, reasoning, tools, long-context | General purpose (default) |
+| `qwen2.5:32b-instruct-q4_1-ctx64k` | 64K | ~20GB | reasoning, analysis, complex-tasks | Complex reasoning |
+
+### Model Selection Guide
+
+| Task Type | Recommended Model |
+|-----------|------------------|
+| Code generation, code analysis | **Qwen Coder 64K** |
+| Daily chat, quick Q&A | **Qwen2.5 14B** (128K faster) |
+| Complex reasoning, deep analysis | **Qwen2.5 32B** (stronger reasoning) |
+| Long document processing (>64K) | **Qwen2.5 14B** (128K context) |
 
 ### Common Error Solutions
 
 1. **Model not allowed**: Register in `models.providers.ollama-remote.models`
 2. **thinking parameter error**: Use non-thinking models (qwen2.5 instead of qwen3-vl)
 3. **numCtx not supported**: Use Modelfile on Ollama server
-4. **Llama Vision tools error**: Use Qwen2.5 (supports tools)
+4. **Llama Vision tools error**: Use Qwen Coder or Qwen2.5 (supports tools)
 5. **Ollama connection failed**: Check server IP and firewall
-6. **NVIDIA API auth failed**: Update API Key
+6. **Configuration key errors**: Removed `agents.entries`, `hooks.internal.entries`, `plugins.entries`
+
+### Key Differences from v1.1.0
+
+- **Removed**: All NVIDIA providers (MiniMax M2.1, GLM 4.7, Kimi K2.5)
+- **Added**: Qwen Coder 64K specialized for code generation
+- **Updated**: Model descriptions optimized for qwen2.5 understanding
+- **New**: Capability tags for better model selection
+- **Change**: Primary model now `ollama-remote/qwen2.5:14b-instruct-q8_0-ctx131072`
 
 ---
 
-**Last Updated**: 2026-02-03
-**Version**: 1.1.0
+**Version:** 2.0.0
+**Last Updated:** 2026-02-08
