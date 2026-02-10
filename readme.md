@@ -121,9 +121,9 @@ openclaw doctor --fix
 
 | 變數名稱 | 必填 | 說明 | 範例 |
 |----------|------|------|------|
-| `GATEWAY_TOKEN` | 是 | OpenClaw Gateway 認證 Token | `f632860762fd9879...` |
-| `TELEGRAM_BOT_TOKEN` | 是 | Telegram Bot Token | `8548351054:AAEp...` |
-| `OLLAMA_SERVER_IP` | 是 | Ollama 伺服器 IP 位址 | `192.168.0.98` |
+| `GATEWAY_TOKEN` | 是 | OpenClaw Gateway 認證 Token | `xtvjfdhh...` |
+| `TELEGRAM_BOT_TOKEN` | 是 | Telegram Bot Token | `486886:thkojn...` |
+| `OLLAMA_SERVER_IP` | 是 | Ollama 伺服器 IP 位址 | `192.168.0.0` |
 
 ### 取得 Telegram Bot Token
 
@@ -576,9 +576,9 @@ ollama create -f "$env:USERPROFILE\Ollama\Modelfiles\Qwen2.5-14B" qwen2.5:14b-in
 
 | Variable | Required | Description | Example |
 |----------|----------|-------------|---------|
-| `GATEWAY_TOKEN` | Yes | OpenClaw Gateway Auth Token | `f632860762fd9879...` |
-| `TELEGRAM_BOT_TOKEN` | Yes | Telegram Bot Token | `8548351054:AAEp...` |
-| `OLLAMA_SERVER_IP` | Yes | Ollama Server IP | `192.168.0.98` |
+| `GATEWAY_TOKEN` | Yes | OpenClaw Gateway Auth Token | `yhhij5786..` |
+| `TELEGRAM_BOT_TOKEN` | Yes | Telegram Bot Token | `478436:A478...` |
+| `OLLAMA_SERVER_IP` | Yes | Ollama Server IP | `192.168.0.0` |
 
 ### Supported Models
 
